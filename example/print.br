@@ -1,0 +1,5 @@
+set "a" 10;
+set "b" 123;
+print a;
+rm a;
+print a

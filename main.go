@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -115,8 +116,12 @@ func specialSplit(str string, delim rune) []string {
 	return result
 }
 
-func typeof(obj any) string {
-	return fmt.Sprintf("%T", obj)
+func removeIntElement(obj []int, index int) []int {
+	for i := index; i < len(obj)-1; i++ {
+		obj[i] = obj[i+1]
+	}
+	obj = obj[:len(obj)-1]
+	return obj
 }
 
 // constructors
@@ -135,6 +140,8 @@ func new_var(vm *VirtualMachine, value any, _type byte) int {
 		index = len(vm.stack) - 1
 	}
 
+	vm.temp = append(vm.temp, index)
+
 	return index
 }
 
@@ -143,7 +150,7 @@ func parse(vm *VirtualMachine, str string) []int {
 	var result []int
 	for _str := range splited {
 		if strings.HasPrefix(splited[_str], "\"") {
-			var _newstr string = strings.ReplaceAll(splited[_str], "\"", "")
+			var _newstr string = splited[_str][1 : len(splited[_str])-1]
 			result = append(result, new_var(vm, _newstr, TYPE_STRING))
 		} else if str_is_number(splited[_str]) {
 			var v, error = strconv.ParseFloat(splited[_str], 64)
@@ -152,8 +159,7 @@ func parse(vm *VirtualMachine, str string) []int {
 			}
 			result = append(result, new_var(vm, v, TYPE_NUMBER))
 		} else if strings.Index(splited[_str], "(") != -1 {
-			//expression & lists
-
+			interpret(vm, splited[_str][1:len(splited[_str])-1])
 		} else {
 			result = append(result, vm.hashes[splited[_str]])
 		}
@@ -181,6 +187,24 @@ func interpret(vm *VirtualMachine, str string) int {
 	return result
 }
 
+func eval(vm *VirtualMachine, str string) int {
+	var splited []string = specialSplit(str, ';')
+	var result int = -1
+	for i := range splited {
+		result = interpret(vm, splited[i])
+		if result != -1 {
+			break
+		}
+	}
+	return result
+}
+
+// std
+// std
+// std
+// std
+// std
+// std
 // std
 
 func std_set(vm *VirtualMachine, args []int) int {
@@ -189,6 +213,45 @@ func std_set(vm *VirtualMachine, args []int) int {
 	if _varname, ok := vm.stack[args[0]].(string); ok {
 		vm.hashes[_varname] = value
 	}
+	return -1
+}
+
+func std_rm(vm *VirtualMachine, args []int) int {
+	vm.typestack[args[0]] = TYPE_NIL
+	vm.stack[args[0]] = 0
+	vm.unused = append(vm.unused, args[0])
+	return -1
+}
+
+func std_clear(vm *VirtualMachine, args []int) int { //need to fix
+	for i := range vm.temp {
+		vm.typestack[vm.temp[i]] = TYPE_NIL
+		vm.stack[vm.temp[i]] = -1
+		vm.unused = append(vm.unused, vm.temp[i])
+	}
+	vm.temp = vm.temp[len(vm.temp):]
+	return -1
+}
+
+func std_edit(vm *VirtualMachine, args []int) int {
+
+	vm.stack[args[0]] = vm.stack[args[1]]
+	vm.typestack[args[0]] = vm.typestack[args[1]]
+
+	return -1
+}
+
+func std_hold(vm *VirtualMachine, args []int) int { // need to fix
+	for i := 0; i < len(vm.temp); i++ {
+		if vm.temp[i] == args[0] {
+			vm.temp = removeIntElement(vm.temp, i)
+		}
+	}
+	return -1
+}
+
+func std_unhold(vm *VirtualMachine, args []int) int {
+	vm.temp = append(vm.temp, args[0])
 	return -1
 }
 
@@ -207,6 +270,14 @@ func std_print(vm *VirtualMachine, args []int) int {
 	return -1
 }
 
+// main
+// main
+// main
+// main
+// main
+// main
+// main
+
 func registerFunction(vm *VirtualMachine, functionName string, function Function) {
 	var index int = new_var(vm, function, TYPE_FUNCTION)
 	vm.hashes[functionName] = index
@@ -215,10 +286,19 @@ func registerFunction(vm *VirtualMachine, functionName string, function Function
 func main() {
 	var vm VirtualMachine = init_vm()
 
-	registerFunction(&vm, "set", std_set)
-	registerFunction(&vm, "print", std_print)
+	var _txt, error = os.ReadFile(os.Args[1])
+	if error != nil {
+		panic("file not found.")
+	}
 
-	var index int = interpret(&vm, "set \"teste\" \"88\"")
-	index = interpret(&vm, "print teste")
+	registerFunction(&vm, "set", std_set)
+	registerFunction(&vm, "edit", std_edit)
+	registerFunction(&vm, "print", std_print)
+	registerFunction(&vm, "hold", std_hold)
+	registerFunction(&vm, "unhold", std_unhold)
+	registerFunction(&vm, "clear", std_clear)
+	registerFunction(&vm, "rm", std_rm)
+
+	var index int = eval(&vm, string(_txt))
 	println(index)
 }

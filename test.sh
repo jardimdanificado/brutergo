@@ -1,0 +1,1 @@
+./bin/bruter example/print.br
